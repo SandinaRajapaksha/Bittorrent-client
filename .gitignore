@@ -70,3 +70,6 @@ Testing/
 #docs
 docs/
 docs
+
+#torrent
+*.torrent
