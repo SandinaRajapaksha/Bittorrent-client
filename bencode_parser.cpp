@@ -11,7 +11,7 @@ class decoder {
 
   public:
     void decode();
-    void decode_int(mode &currentMode, std::ifstream &torrentFile);
+    int decode_int(mode &currentMode, std::ifstream &torrentFile);
 };
 
 void decoder::decode() {
@@ -25,26 +25,32 @@ void decoder::decode() {
 
     char character;
     while (torrentFile.get(character)) {
-        std::cout << character;
         if (character == 'i' && currentMode == mode::normalReading) {
+            currentMode = mode::valueReading;
             typeStack.push('i');
-            decode_int(currentMode, torrentFile);
+            int decodedIntValue = decode_int(currentMode, torrentFile);
+            std::cout << decodedIntValue;
             typeStack.pop();
         }
     }
 }
-void decoder::decode_int(mode &currentMode, std::ifstream &torrentFile) {
-    std::vector<int> tempArray;
-    int realInteger;
+int decoder::decode_int(mode &currentMode, std::ifstream &torrentFile) {
+    std::string tempArray;
+    int realInteger = 0;
     char character;
     int i = 0;
     while (torrentFile.get(character)) {
         if (character == 'e') {
             break;
         }
-        tempArray[i] = (int)character;
+        tempArray += character;
         i++;
     }
+    realInteger = std::stoi(tempArray);
+    currentMode = mode::normalReading;
+    return realInteger;
 }
 int main() {
+    decoder harmoniaDecoder;
+    harmoniaDecoder.decode();
 }
