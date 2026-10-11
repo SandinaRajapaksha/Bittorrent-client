@@ -44,13 +44,11 @@ int decoder::decode_int(mode &currentMode, std::ifstream &torrentFile) {
     std::string tempArray;
     int realInteger = 0;
     char character;
-    int i = 0;
     while (torrentFile.get(character)) {
         if (character == 'e') {
             break;
         }
         tempArray += character;
-        i++;
     }
     realInteger = std::stoi(tempArray);
     currentMode = mode::normalReading;
