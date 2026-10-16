@@ -11,6 +11,7 @@
 #include <variant>
 #include <vector>
 
+static std::ifstream torrentFile("torex.torrent");
 class BValue {
   public:
     using Int = int64_t;
@@ -50,7 +51,6 @@ class BValue {
 
 class decoder {
   private:
-    int stacksLcounter;
     int listCounter;
     enum class mode {
         normalReading = 1,
@@ -63,19 +63,16 @@ class decoder {
   public:
     decoder() {
         listCounter = 0;
-        stacksLcounter = 0;
     }
     void decode();
     // base types
     uint64_t decode_int(mode &currentMode, std::ifstream &torrentFile);
     std::string decode_string(mode &currentMode, std::ifstream &torrentFile);
     void decode_list(mode &currentMode, std::ifstream &torrentFile);
-    void decode_list_int_array(mode &currentMode, std::ifstream torrentFile);
 };
 
 void decoder::decode() {
     mode currentMode = mode::normalReading;
-    std::ifstream torrentFile("torex.torrent");
     if (!torrentFile.is_open()) {
         std::cout << "Error reading the file\n";
         return;
@@ -84,9 +81,7 @@ void decoder::decode() {
     char character;
     while (torrentFile.get(character)) {
         if (character == 'l') {
-            typeStack.push('l');
-            stacksLcounter++;
-            decode();
+            decode_list(currentMode, torrentFile);
         }
         if (character == 'i' && currentMode == mode::normalReading) {
             typeStack.push('i');
@@ -95,8 +90,6 @@ void decoder::decode() {
             typeStack.pop();
         }
         if (std::isdigit(static_cast<unsigned char>(character)) && currentMode == mode::normalReading) {
-            if (stacksLcounter == 2) {
-            }
             static std::string decodedString = decode_string(currentMode, torrentFile);
             std::cout << decodedString;
         }
@@ -147,6 +140,7 @@ void decoder::decode_list(mode &currentMode, std::ifstream &torrentFile) {
     torrentFile.get(character);
     if (character == 'l') {
         decode_list(currentMode, torrentFile);
+        return;
     }
 
     // array of ints
@@ -156,16 +150,16 @@ void decoder::decode_list(mode &currentMode, std::ifstream &torrentFile) {
         if (character == 'i') {
             uint64_t value = decode_int(currentMode, torrentFile);
             typeStack.push('i');
+            torrentFile.unget();
             torrentFile.get(character);
-            if (character == 'e') {
+            if (character == 'e' && typeStack.top() == 'i') {
                 typeStack.pop();
-            } else {
-                baseVector.push_back(value);
             }
+            baseVector.push_back(value);
         }
     }
     for (const auto &element : baseVector) {
-        std::cout << element << " ";
+        std::cout << element;
     }
 }
 
