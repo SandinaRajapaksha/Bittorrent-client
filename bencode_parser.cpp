@@ -159,7 +159,7 @@ void decoder::decode_list(mode &currentMode, std::ifstream &torrentFile) {
         }
     }
     for (const auto &element : baseVector) {
-        std::cout << element;
+        std::cout << element << "-";
     }
 }
 
