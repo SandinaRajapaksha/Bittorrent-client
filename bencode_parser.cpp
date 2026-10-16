@@ -6,6 +6,7 @@
 #include <stack>
 #include <stdexcept>
 #include <string>
+#include <sys/types.h>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -50,27 +51,30 @@ class BValue {
 class decoder {
   private:
     int stacksLcounter;
+    int listCounter;
     enum class mode {
         normalReading = 1,
         valueReading
     };
-
+    std::stack<char> typeStack;
     // whole data structure
     std::map<std::string, BValue> root;
 
   public:
     decoder() {
+        listCounter = 0;
         stacksLcounter = 0;
     }
     void decode();
     // base types
     uint64_t decode_int(mode &currentMode, std::ifstream &torrentFile);
     std::string decode_string(mode &currentMode, std::ifstream &torrentFile);
+    void decode_list(mode &currentMode, std::ifstream &torrentFile);
+    void decode_list_int_array(mode &currentMode, std::ifstream torrentFile);
 };
 
 void decoder::decode() {
     mode currentMode = mode::normalReading;
-    std::stack<char> typeStack;
     std::ifstream torrentFile("torex.torrent");
     if (!torrentFile.is_open()) {
         std::cout << "Error reading the file\n";
@@ -134,6 +138,37 @@ std::string decoder::decode_string(mode &currentMode, std::ifstream &torrentFile
     currentMode = mode::normalReading;
     return decoded_string;
 }
+
+void decoder::decode_list(mode &currentMode, std::ifstream &torrentFile) {
+    // divide
+    typeStack.push('l');
+    listCounter++;
+    char character;
+    torrentFile.get(character);
+    if (character == 'l') {
+        decode_list(currentMode, torrentFile);
+    }
+
+    // array of ints
+    std::vector<uint64_t> baseVector;
+
+    while (!(character == 'e' && typeStack.top() == 'l')) {
+        if (character == 'i') {
+            uint64_t value = decode_int(currentMode, torrentFile);
+            typeStack.push('i');
+            torrentFile.get(character);
+            if (character == 'e') {
+                typeStack.pop();
+            } else {
+                baseVector.push_back(value);
+            }
+        }
+    }
+    for (const auto &element : baseVector) {
+        std::cout << element << " ";
+    }
+}
+
 int main() {
     decoder harmoniaDecoder;
     harmoniaDecoder.decode();
