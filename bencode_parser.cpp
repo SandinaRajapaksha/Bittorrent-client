@@ -77,23 +77,20 @@ void decoder::decode() {
     while (torrentFile.get(character)) {
         if (character == 'l') {
             std::vector<std::variant<int64_t, std::string>> baseVector = decode_list(torrentFile);
-            // printing vector
-            for (const auto i : baseVector) {
-                for (const auto &i : baseVector) { // Note: Passed by const reference to avoid copying strings
-                    std::visit([](const auto &val) {
-                        std::cout << val;
-                    },
-                               i);
-                    std::cout << "-";
-                }
+
+            // single loop, by const reference
+            for (const auto &elem : baseVector) {
+                std::visit([](const auto &val) {
+                    std::cout << val;
+                },
+                           elem);
             }
-        }
-        if (character == 'i') {
-            static int64_t decodedIntValue = decode_int(torrentFile);
+
+        } else if (character == 'i') {
+            int64_t decodedIntValue = decode_int(torrentFile);
             std::cout << decodedIntValue;
-        }
-        if (std::isdigit(static_cast<unsigned char>(character))) {
-            static std::string decodedString = decode_string(torrentFile);
+        } else if (std::isdigit(static_cast<unsigned char>(character))) {
+            std::string decodedString = decode_string(torrentFile);
             std::cout << decodedString;
         }
     }
