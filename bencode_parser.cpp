@@ -52,10 +52,6 @@ class BValue {
 class decoder {
   private:
     int listCounter;
-    enum class mode {
-        normalReading = 1,
-        valueReading
-    };
     std::stack<char> typeStack;
     // whole data structure
     std::map<std::string, BValue> root;
@@ -66,13 +62,12 @@ class decoder {
     }
     void decode();
     // base types
-    uint64_t decode_int(mode &currentMode, std::ifstream &torrentFile);
-    std::string decode_string(mode &currentMode, std::ifstream &torrentFile);
-    void decode_list(mode &currentMode, std::ifstream &torrentFile);
+    uint64_t decode_int(std::ifstream &torrentFile);
+    std::string decode_string(std::ifstream &torrentFile);
+    void decode_list(std::ifstream &torrentFile);
 };
 
 void decoder::decode() {
-    mode currentMode = mode::normalReading;
     if (!torrentFile.is_open()) {
         std::cout << "Error reading the file\n";
         return;
@@ -81,22 +76,21 @@ void decoder::decode() {
     char character;
     while (torrentFile.get(character)) {
         if (character == 'l') {
-            decode_list(currentMode, torrentFile);
+            decode_list(torrentFile);
         }
-        if (character == 'i' && currentMode == mode::normalReading) {
+        if (character == 'i') {
             typeStack.push('i');
-            static uint64_t decodedIntValue = decode_int(currentMode, torrentFile);
+            static uint64_t decodedIntValue = decode_int(torrentFile);
             std::cout << decodedIntValue;
             typeStack.pop();
         }
-        if (std::isdigit(static_cast<unsigned char>(character)) && currentMode == mode::normalReading) {
-            static std::string decodedString = decode_string(currentMode, torrentFile);
+        if (std::isdigit(static_cast<unsigned char>(character))) {
+            static std::string decodedString = decode_string(torrentFile);
             std::cout << decodedString;
         }
     }
 }
-uint64_t decoder::decode_int(mode &currentMode, std::ifstream &torrentFile) {
-    currentMode = mode::valueReading;
+uint64_t decoder::decode_int(std::ifstream &torrentFile) {
     std::string tempArray;
     uint64_t realInteger = 0;
     char character;
@@ -107,12 +101,10 @@ uint64_t decoder::decode_int(mode &currentMode, std::ifstream &torrentFile) {
         tempArray += character;
     }
     realInteger = std::stoi(tempArray);
-    currentMode = mode::normalReading;
     return realInteger;
 }
-std::string decoder::decode_string(mode &currentMode, std::ifstream &torrentFile) {
+std::string decoder::decode_string(std::ifstream &torrentFile) {
     torrentFile.unget();
-    currentMode = mode::valueReading;
     std::string tempNumber;
     char character;
     while (torrentFile.get(character)) {
@@ -128,18 +120,17 @@ std::string decoder::decode_string(mode &currentMode, std::ifstream &torrentFile
         torrentFile.get(character);
         decoded_string += character;
     }
-    currentMode = mode::normalReading;
     return decoded_string;
 }
 
-void decoder::decode_list(mode &currentMode, std::ifstream &torrentFile) {
+void decoder::decode_list(std::ifstream &torrentFile) {
     // divide
     typeStack.push('l');
     listCounter++;
     char character;
     torrentFile.get(character);
     if (character == 'l') {
-        decode_list(currentMode, torrentFile);
+        decode_list(torrentFile);
         return;
     }
 
@@ -148,7 +139,7 @@ void decoder::decode_list(mode &currentMode, std::ifstream &torrentFile) {
 
     while (!(character == 'e' && typeStack.top() == 'l')) {
         if (character == 'i') {
-            uint64_t value = decode_int(currentMode, torrentFile);
+            uint64_t value = decode_int(torrentFile);
             typeStack.push('i');
             torrentFile.unget();
             torrentFile.get(character);
