@@ -60,8 +60,9 @@ class decoder {
     void decode();
     // base types
     BValue decode_int(std::ifstream &torrentFile);
-    std::string decode_string(std::ifstream &torrentFile);
-    std::vector<std::variant<int64_t, std::string>> decode_list(std::ifstream &torrentFile);
+    BValue decode_string(std::ifstream &torrentFile);
+    BValue decode_list(std::ifstream &torrentFile);
+    BValue decode_dictionary(std::ifstream &torrentFile);
 };
 
 void decoder::decode() {
@@ -73,7 +74,7 @@ void decoder::decode() {
     char character;
     while (torrentFile.get(character)) {
         if (character == 'l') {
-            std::vector<std::variant<int64_t, std::string>> baseVector = decode_list(torrentFile);
+            BValue baseVector = decode_list(torrentFile);
 
             // just printing stuff
             // single loop, by const reference
@@ -87,9 +88,8 @@ void decoder::decode() {
         } else if (character == 'i') {
             BValue decodedIntValue = decode_int(torrentFile);
             std::cout << decodedIntValue.asInt();
-            // std::cout << decodedIntValue;
         } else if (std::isdigit(static_cast<unsigned char>(character))) {
-            std::string decodedString = decode_string(torrentFile);
+            BValue decodedString = decode_string(torrentFile);
             // std::cout << decodedString;
         }
     }
@@ -107,7 +107,7 @@ BValue decoder::decode_int(std::ifstream &torrentFile) {
     realInteger = std::stoi(tempArray);
     return realInteger;
 }
-std::string decoder::decode_string(std::ifstream &torrentFile) {
+BValue decoder::decode_string(std::ifstream &torrentFile) {
     torrentFile.unget();
     std::string tempNumber;
     char character;
@@ -124,18 +124,18 @@ std::string decoder::decode_string(std::ifstream &torrentFile) {
         torrentFile.get(character);
         decoded_string += character;
     }
-    return decoded_string;
+    BValue decoded_str(decoded_string);
+    return decoded_str;
 }
 
-std::vector<std::variant<int64_t, std::string>> decoder::decode_list(std::ifstream &torrentFile) {
+BValue decoder::decode_list(std::ifstream &torrentFile) {
     char character;
     torrentFile.unget();
     torrentFile.get(character);
     if (character == 'l') {
-        std::vector<std::variant<int64_t, std::string>> atomicListValue = decode_list(torrentFile);
+        BValue atomicListValue = decode_list(torrentFile);
     }
 
-    std::vector<std::variant<int64_t, std::string>> baseVector;
     while (true) {
         if (character == 'i') {
             BValue value = decode_int(torrentFile);
@@ -144,7 +144,7 @@ std::vector<std::variant<int64_t, std::string>> decoder::decode_list(std::ifstre
             // baseVector.push_back(value);
 
         } else if (std::isdigit(static_cast<unsigned char>(character))) {
-            std::string value = decode_string(torrentFile);
+            BValue value = decode_string(torrentFile);
             torrentFile.unget();
             torrentFile.get(character);
 
