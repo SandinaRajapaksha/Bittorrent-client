@@ -105,12 +105,8 @@ void decoder::decode() {
     while (torrentFile.get(character)) {
         if (character == 'l') {
             // flushing out current list
-            std::vector<BValue> newPlaceholder;
-            newPlaceholder.clear();
-            parsedList = newPlaceholder;
 
-            decode_list(torrentFile);
-            BValue decodedList = parsedList;
+            BValue decodedList = decode_list(torrentFile);
 
             // just printing stuff
             printBValue(decodedList);
@@ -159,30 +155,24 @@ BValue decoder::decode_string(std::ifstream &torrentFile) {
 }
 
 BValue decoder::decode_list(std::ifstream &torrentFile) {
+    std::vector<BValue> list;
     char character;
-    torrentFile.get(character);
-    while (character == 'l') {
-        parsedList.push_back(decode_list(torrentFile));
-        torrentFile.get(character);
-        return 0;
+
+    while (torrentFile.get(character)) {
+        if (character == 'e') {
+            break;
+        }
+        if (character == 'l') {
+            list.push_back(decode_list(torrentFile));
+        } else if (character == 'i') {
+            list.push_back(decode_int(torrentFile));
+        } else if (std::isdigit(static_cast<unsigned char>(character))) {
+            list.push_back(decode_string(torrentFile));
+        }
     }
 
-    std::vector<BValue> atomicList;
-    if (character == 'i') {
-        while (character != 'e') {
-            BValue value = decode_int(torrentFile);
-            atomicList.push_back(value);
-            torrentFile.get(character);
-        }
-    }
-    if (std::isdigit(static_cast<unsigned char>(character))) {
-        while (character != 'e') {
-            BValue value = decode_string(torrentFile);
-            atomicList.push_back(value);
-            torrentFile.get(character);
-        }
-    }
-    return atomicList;
+    parsedList = list;
+    return BValue(list);
 }
 int main() {
     decoder harmoniaDecoder;
