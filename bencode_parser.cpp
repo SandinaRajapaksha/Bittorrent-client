@@ -50,6 +50,7 @@ class BValue {
     std::variant<Int, Str, List, Dict> data_;
 };
 
+std::vector<BValue> parsedList;
 class decoder {
   private:
     std::stack<char> typeStack;
@@ -65,6 +66,35 @@ class decoder {
     BValue decode_dictionary(std::ifstream &torrentFile);
 };
 
+void printBValue(const BValue &v, int indent = 0) {
+    std::string pad(indent, ' ');
+
+    if (v.isInt()) {
+        std::cout << pad << v.asInt() << "\n";
+    } else if (v.isString()) {
+        const std::string &s = v.asString();
+        if (s.size() > 60) {
+            // long strings are probably binary (piece hashes), so just show the length
+            std::cout << pad << "<" << s.size() << " bytes>\n";
+        } else {
+            std::cout << pad << s << "\n";
+        }
+    } else if (v.isList()) {
+        std::cout << pad << "[\n";
+        for (const auto &item : v.asList()) {
+            printBValue(item, indent + 2);
+        }
+        std::cout << pad << "]\n";
+    } else if (v.isDict()) {
+        std::cout << pad << "{\n";
+        for (const auto &[key, value] : v.asDict()) {
+            std::cout << pad << "  " << key << ":\n";
+            printBValue(value, indent + 4);
+        }
+        std::cout << pad << "}\n";
+    }
+}
+
 void decoder::decode() {
     if (!torrentFile.is_open()) {
         std::cout << "Error reading the file\n";
@@ -74,16 +104,16 @@ void decoder::decode() {
     char character;
     while (torrentFile.get(character)) {
         if (character == 'l') {
-            BValue baseVector = decode_list(torrentFile);
+            // flushing out current list
+            std::vector<BValue> newPlaceholder;
+            newPlaceholder.clear();
+            parsedList = newPlaceholder;
+
+            decode_list(torrentFile);
+            BValue decodedList = parsedList;
 
             // just printing stuff
-            // single loop, by const reference
-            for (const auto &elem : baseVector) {
-                std::visit([](const auto &val) {
-                    std::cout << val;
-                },
-                           elem);
-            }
+            printBValue(decodedList);
 
         } else if (character == 'i') {
             BValue decodedIntValue = decode_int(torrentFile);
@@ -130,32 +160,29 @@ BValue decoder::decode_string(std::ifstream &torrentFile) {
 
 BValue decoder::decode_list(std::ifstream &torrentFile) {
     char character;
-    torrentFile.unget();
     torrentFile.get(character);
-    if (character == 'l') {
-        BValue atomicListValue = decode_list(torrentFile);
-    }
-
-    while (true) {
-        if (character == 'i') {
-            BValue value = decode_int(torrentFile);
-            torrentFile.unget();
-            torrentFile.get(character);
-            // baseVector.push_back(value);
-
-        } else if (std::isdigit(static_cast<unsigned char>(character))) {
-            BValue value = decode_string(torrentFile);
-            torrentFile.unget();
-            torrentFile.get(character);
-
-            baseVector.push_back(value);
-        }
-        if (character == 'e') {
-            break;
-        }
+    while (character == 'l') {
+        parsedList.push_back(decode_list(torrentFile));
         torrentFile.get(character);
+        return 0;
     }
-    return baseVector;
+
+    std::vector<BValue> atomicList;
+    if (character == 'i') {
+        while (character != 'e') {
+            BValue value = decode_int(torrentFile);
+            atomicList.push_back(value);
+            torrentFile.get(character);
+        }
+    }
+    if (std::isdigit(static_cast<unsigned char>(character))) {
+        while (character != 'e') {
+            BValue value = decode_string(torrentFile);
+            atomicList.push_back(value);
+            torrentFile.get(character);
+        }
+    }
+    return atomicList;
 }
 int main() {
     decoder harmoniaDecoder;
