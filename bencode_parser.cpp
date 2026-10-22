@@ -66,7 +66,6 @@ void printBValue(const BValue &v, int indent = 0) {
     } else if (v.isString()) {
         const std::string &s = v.asString();
         if (s.size() > 60) {
-            // long strings are probably binary (piece hashes), so just show the length
             std::cout << pad << "<" << s.size() << " bytes>\n";
         } else {
             std::cout << pad << s << "\n";
