@@ -12,10 +12,8 @@
 
 static std::ifstream torrentFile("torex.torrent");
 class BValue {
-    // Default constructor (needed for std::map::operator[])
   public:
     BValue() : data_(Int(0)) {}
-
     // Constructors: one per kind of data
   public:
     using Int = int64_t;
@@ -135,7 +133,7 @@ BValue decoder::decode_int(std::ifstream &torrentFile) {
         }
         tempArray += character;
     }
-    realInteger = std::stoi(tempArray);
+    realInteger = std::stoll(tempArray);
     return realInteger;
 }
 BValue decoder::decode_string(std::ifstream &torrentFile) {
@@ -149,7 +147,7 @@ BValue decoder::decode_string(std::ifstream &torrentFile) {
         tempNumber += character;
     }
 
-    int64_t stringLength = std::stoi(tempNumber);
+    int64_t stringLength = std::stoll(tempNumber);
     std::string decoded_string;
     for (int i = 0; i < stringLength; i++) {
         torrentFile.get(character);
@@ -195,18 +193,19 @@ BValue decoder::decode_dictionary(std::ifstream &torrentFile) {
                 break;
             }
 
-            BValue value;
             if (character == 'd') {
-                value = decode_dictionary(torrentFile);
+                BValue value = decode_dictionary(torrentFile);
+                decodedDictionary[key] = value;
             } else if (character == 'l') {
-                value = decode_list(torrentFile);
+                BValue value = decode_list(torrentFile);
+                decodedDictionary[key] = value;
             } else if (character == 'i') {
-                value = decode_int(torrentFile);
+                BValue value = decode_int(torrentFile);
+                decodedDictionary[key] = value;
             } else if (std::isdigit(static_cast<unsigned char>(character))) {
-                value = decode_string(torrentFile);
+                BValue value = decode_string(torrentFile);
+                decodedDictionary[key] = value;
             }
-
-            decodedDictionary[key] = value;
         }
     }
     return decodedDictionary;
