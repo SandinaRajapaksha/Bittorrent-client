@@ -1,19 +1,22 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
-#include <list>
 #include <map>
 #include <ostream>
 #include <stack>
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
-#include <unordered_map>
 #include <variant>
 #include <vector>
 
 static std::ifstream torrentFile("torex.torrent");
 class BValue {
+    // Default constructor (needed for std::map::operator[])
+  public:
+    BValue() : data_(Int(0)) {}
+
+    // Constructors: one per kind of data
   public:
     using Int = int64_t;
     using Str = std::string;
@@ -50,7 +53,6 @@ class BValue {
     std::variant<Int, Str, List, Dict> data_;
 };
 
-std::vector<BValue> parsedList;
 class decoder {
   private:
     std::stack<char> typeStack;
@@ -117,6 +119,9 @@ void decoder::decode() {
         } else if (std::isdigit(static_cast<unsigned char>(character))) {
             BValue decodedString = decode_string(torrentFile);
             // std::cout << decodedString;
+        } else if (character == 'd') {
+            BValue decodedDict = decode_dictionary(torrentFile);
+            printBValue(decodedDict);
         }
     }
 }
@@ -170,10 +175,43 @@ BValue decoder::decode_list(std::ifstream &torrentFile) {
             list.push_back(decode_string(torrentFile));
         }
     }
-
-    parsedList = list;
     return BValue(list);
 }
+
+BValue decoder::decode_dictionary(std::ifstream &torrentFile) {
+    std::map<std::string, BValue> decodedDictionary;
+    char character;
+
+    while (torrentFile.get(character)) {
+        if (character == 'e') {
+            break;
+        }
+
+        if (std::isdigit(static_cast<unsigned char>(character))) {
+            BValue keyValue = decode_string(torrentFile);
+            std::string key = keyValue.asString();
+
+            if (!torrentFile.get(character)) {
+                break;
+            }
+
+            BValue value;
+            if (character == 'd') {
+                value = decode_dictionary(torrentFile);
+            } else if (character == 'l') {
+                value = decode_list(torrentFile);
+            } else if (character == 'i') {
+                value = decode_int(torrentFile);
+            } else if (std::isdigit(static_cast<unsigned char>(character))) {
+                value = decode_string(torrentFile);
+            }
+
+            decodedDictionary[key] = value;
+        }
+    }
+    return decodedDictionary;
+};
+
 int main() {
     decoder harmoniaDecoder;
     harmoniaDecoder.decode();
