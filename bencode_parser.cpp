@@ -171,47 +171,48 @@ BValue decoder::decode_list(std::ifstream &torrentFile) {
             list.push_back(decode_int(torrentFile));
         } else if (std::isdigit(static_cast<unsigned char>(character))) {
             list.push_back(decode_string(torrentFile));
+        } else if (character == 'd') {
+            list.push_back(decode_dictionary(torrentFile));
         }
+        return BValue(list);
     }
-    return BValue(list);
-}
 
-BValue decoder::decode_dictionary(std::ifstream &torrentFile) {
-    std::map<std::string, BValue> decodedDictionary;
-    char character;
+    BValue decoder::decode_dictionary(std::ifstream & torrentFile) {
+        std::map<std::string, BValue> decodedDictionary;
+        char character;
 
-    while (torrentFile.get(character)) {
-        if (character == 'e') {
-            break;
-        }
-
-        if (std::isdigit(static_cast<unsigned char>(character))) {
-            BValue keyValue = decode_string(torrentFile);
-            std::string key = keyValue.asString();
-
-            if (!torrentFile.get(character)) {
+        while (torrentFile.get(character)) {
+            if (character == 'e') {
                 break;
             }
 
-            if (character == 'd') {
-                BValue value = decode_dictionary(torrentFile);
-                decodedDictionary[key] = value;
-            } else if (character == 'l') {
-                BValue value = decode_list(torrentFile);
-                decodedDictionary[key] = value;
-            } else if (character == 'i') {
-                BValue value = decode_int(torrentFile);
-                decodedDictionary[key] = value;
-            } else if (std::isdigit(static_cast<unsigned char>(character))) {
-                BValue value = decode_string(torrentFile);
-                decodedDictionary[key] = value;
+            if (std::isdigit(static_cast<unsigned char>(character))) {
+                BValue keyValue = decode_string(torrentFile);
+                std::string key = keyValue.asString();
+
+                if (!torrentFile.get(character)) {
+                    break;
+                }
+
+                if (character == 'd') {
+                    BValue value = decode_dictionary(torrentFile);
+                    decodedDictionary[key] = value;
+                } else if (character == 'l') {
+                    BValue value = decode_list(torrentFile);
+                    decodedDictionary[key] = value;
+                } else if (character == 'i') {
+                    BValue value = decode_int(torrentFile);
+                    decodedDictionary[key] = value;
+                } else if (std::isdigit(static_cast<unsigned char>(character))) {
+                    BValue value = decode_string(torrentFile);
+                    decodedDictionary[key] = value;
+                }
             }
         }
-    }
-    return decodedDictionary;
-};
+        return decodedDictionary;
+    };
 
-int main() {
-    decoder harmoniaDecoder;
-    harmoniaDecoder.decode();
-}
+    int main() {
+        decoder harmoniaDecoder;
+        harmoniaDecoder.decode();
+    }
