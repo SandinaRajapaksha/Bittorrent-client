@@ -1,18 +1,20 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
-#include <list>
 #include <map>
+#include <ostream>
 #include <stack>
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
-#include <unordered_map>
 #include <variant>
 #include <vector>
 
 static std::ifstream torrentFile("torex.torrent");
 class BValue {
+  public:
+    BValue() : data_(Int(0)) {}
+    // Constructors: one per kind of data
   public:
     using Int = int64_t;
     using Str = std::string;
@@ -51,28 +53,49 @@ class BValue {
 
 class decoder {
   private:
-    int listCounter;
-    enum class mode {
-        normalReading = 1,
-        valueReading
-    };
     std::stack<char> typeStack;
     // whole data structure
     std::map<std::string, BValue> root;
 
   public:
-    decoder() {
-        listCounter = 0;
-    }
     void decode();
     // base types
-    uint64_t decode_int(mode &currentMode, std::ifstream &torrentFile);
-    std::string decode_string(mode &currentMode, std::ifstream &torrentFile);
-    void decode_list(mode &currentMode, std::ifstream &torrentFile);
+    BValue decode_int(std::ifstream &torrentFile);
+    BValue decode_string(std::ifstream &torrentFile);
+    BValue decode_list(std::ifstream &torrentFile);
+    BValue decode_dictionary(std::ifstream &torrentFile);
 };
 
+void printBValue(const BValue &v, int indent = 0) {
+    std::string pad(indent, ' ');
+
+    if (v.isInt()) {
+        std::cout << pad << v.asInt() << "\n";
+    } else if (v.isString()) {
+        const std::string &s = v.asString();
+        if (s.size() > 60) {
+            // long strings are probably binary (piece hashes), so just show the length
+            std::cout << pad << "<" << s.size() << " bytes>\n";
+        } else {
+            std::cout << pad << s << "\n";
+        }
+    } else if (v.isList()) {
+        std::cout << pad << "[\n";
+        for (const auto &item : v.asList()) {
+            printBValue(item, indent + 2);
+        }
+        std::cout << pad << "]\n";
+    } else if (v.isDict()) {
+        std::cout << pad << "{\n";
+        for (const auto &[key, value] : v.asDict()) {
+            std::cout << pad << "  " << key << ":\n";
+            printBValue(value, indent + 4);
+        }
+        std::cout << pad << "}\n";
+    }
+}
+
 void decoder::decode() {
-    mode currentMode = mode::normalReading;
     if (!torrentFile.is_open()) {
         std::cout << "Error reading the file\n";
         return;
@@ -81,24 +104,28 @@ void decoder::decode() {
     char character;
     while (torrentFile.get(character)) {
         if (character == 'l') {
-            decode_list(currentMode, torrentFile);
-        }
-        if (character == 'i' && currentMode == mode::normalReading) {
-            typeStack.push('i');
-            static uint64_t decodedIntValue = decode_int(currentMode, torrentFile);
-            std::cout << decodedIntValue;
-            typeStack.pop();
-        }
-        if (std::isdigit(static_cast<unsigned char>(character)) && currentMode == mode::normalReading) {
-            static std::string decodedString = decode_string(currentMode, torrentFile);
-            std::cout << decodedString;
+            // flushing out current list
+
+            BValue decodedList = decode_list(torrentFile);
+
+            // just printing stuff
+            printBValue(decodedList);
+
+        } else if (character == 'i') {
+            BValue decodedIntValue = decode_int(torrentFile);
+            std::cout << decodedIntValue.asInt();
+        } else if (std::isdigit(static_cast<unsigned char>(character))) {
+            BValue decodedString = decode_string(torrentFile);
+            // std::cout << decodedString;
+        } else if (character == 'd') {
+            BValue decodedDict = decode_dictionary(torrentFile);
+            printBValue(decodedDict);
         }
     }
 }
-uint64_t decoder::decode_int(mode &currentMode, std::ifstream &torrentFile) {
-    currentMode = mode::valueReading;
+BValue decoder::decode_int(std::ifstream &torrentFile) {
     std::string tempArray;
-    uint64_t realInteger = 0;
+    BValue realInteger = 0;
     char character;
     while (torrentFile.get(character)) {
         if (character == 'e') {
@@ -106,13 +133,11 @@ uint64_t decoder::decode_int(mode &currentMode, std::ifstream &torrentFile) {
         }
         tempArray += character;
     }
-    realInteger = std::stoi(tempArray);
-    currentMode = mode::normalReading;
+    realInteger = std::stoll(tempArray);
     return realInteger;
 }
-std::string decoder::decode_string(mode &currentMode, std::ifstream &torrentFile) {
+BValue decoder::decode_string(std::ifstream &torrentFile) {
     torrentFile.unget();
-    currentMode = mode::valueReading;
     std::string tempNumber;
     char character;
     while (torrentFile.get(character)) {
@@ -122,48 +147,72 @@ std::string decoder::decode_string(mode &currentMode, std::ifstream &torrentFile
         tempNumber += character;
     }
 
-    uint64_t stringLength = std::stoi(tempNumber);
+    int64_t stringLength = std::stoll(tempNumber);
     std::string decoded_string;
     for (int i = 0; i < stringLength; i++) {
         torrentFile.get(character);
         decoded_string += character;
     }
-    currentMode = mode::normalReading;
-    return decoded_string;
+    BValue decoded_str(decoded_string);
+    return decoded_str;
 }
 
-void decoder::decode_list(mode &currentMode, std::ifstream &torrentFile) {
-    // divide
-    typeStack.push('l');
-    listCounter++;
+BValue decoder::decode_list(std::ifstream &torrentFile) {
+    std::vector<BValue> list;
     char character;
-    torrentFile.get(character);
-    if (character == 'l') {
-        decode_list(currentMode, torrentFile);
-        return;
-    }
 
-    // array of ints
-    std::vector<uint64_t> baseVector;
-
-    while (!(character == 'e' && typeStack.top() == 'l')) {
-        if (character == 'i') {
-            uint64_t value = decode_int(currentMode, torrentFile);
-            typeStack.push('i');
-            torrentFile.unget();
-            torrentFile.get(character);
-            if (character == 'e' && typeStack.top() == 'i') {
-                typeStack.pop();
-            }
-            baseVector.push_back(value);
+    while (torrentFile.get(character)) {
+        if (character == 'e') {
+            break;
         }
+        if (character == 'l') {
+            list.push_back(decode_list(torrentFile));
+        } else if (character == 'i') {
+            list.push_back(decode_int(torrentFile));
+        } else if (std::isdigit(static_cast<unsigned char>(character))) {
+            list.push_back(decode_string(torrentFile));
+        } else if (character == 'd') {
+            list.push_back(decode_dictionary(torrentFile));
+        }
+        return BValue(list);
     }
-    for (const auto &element : baseVector) {
-        std::cout << element << "-";
-    }
-}
 
-int main() {
-    decoder harmoniaDecoder;
-    harmoniaDecoder.decode();
-}
+    BValue decoder::decode_dictionary(std::ifstream & torrentFile) {
+        std::map<std::string, BValue> decodedDictionary;
+        char character;
+
+        while (torrentFile.get(character)) {
+            if (character == 'e') {
+                break;
+            }
+
+            if (std::isdigit(static_cast<unsigned char>(character))) {
+                BValue keyValue = decode_string(torrentFile);
+                std::string key = keyValue.asString();
+
+                if (!torrentFile.get(character)) {
+                    break;
+                }
+
+                if (character == 'd') {
+                    BValue value = decode_dictionary(torrentFile);
+                    decodedDictionary[key] = value;
+                } else if (character == 'l') {
+                    BValue value = decode_list(torrentFile);
+                    decodedDictionary[key] = value;
+                } else if (character == 'i') {
+                    BValue value = decode_int(torrentFile);
+                    decodedDictionary[key] = value;
+                } else if (std::isdigit(static_cast<unsigned char>(character))) {
+                    BValue value = decode_string(torrentFile);
+                    decodedDictionary[key] = value;
+                }
+            }
+        }
+        return decodedDictionary;
+    };
+
+    int main() {
+        decoder harmoniaDecoder;
+        harmoniaDecoder.decode();
+    }
