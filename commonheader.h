@@ -1,0 +1,12 @@
+#pragma once
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <ostream>
+#include <stack>
+#include <stdexcept>
+#include <string>
+#include <sys/types.h>
+#include <variant>
+#include <vector>
