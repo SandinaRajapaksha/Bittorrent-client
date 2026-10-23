@@ -1,6 +1,9 @@
 #include "bencode_parser.h"
-
+#include "commonheader.h"
+#include "torrentMetaInfo.h"
 int main() {
     decoder harmoniaDecoder;
-    harmoniaDecoder.decode();
+    BValue decodedTorrentInfo = harmoniaDecoder.decode();
+    metainfo MetaInfoOfTorrent(decodedTorrentInfo);
+    MetaInfoOfTorrent.printBasicInfo();
 }

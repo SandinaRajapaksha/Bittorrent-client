@@ -30,26 +30,32 @@ void printBValue(const BValue &v, int indent = 0) {
     }
 }
 
-void decoder::decode() {
+BValue decoder::decode() {
     if (!torrentFile.is_open()) {
         std::cout << "Error reading the file\n";
-        return;
+        return BValue(0);
     }
-
     char character;
+    BValue finalDecoded;
     while (torrentFile.get(character)) {
         if (character == 'l') {
             BValue decodedList = decode_list(torrentFile);
+            finalDecoded = decodedList;
         } else if (character == 'i') {
             BValue decodedIntValue = decode_int(torrentFile);
+            finalDecoded = decodedIntValue;
         } else if (std::isdigit(static_cast<unsigned char>(character))) {
             BValue decodedString = decode_string(torrentFile);
+            finalDecoded = decodedString;
         } else if (character == 'd') {
             BValue decodedDict = decode_dictionary(torrentFile);
-            printBValue(decodedDict);
+            finalDecoded = decodedDict;
         }
     }
+
+    return finalDecoded;
 }
+
 BValue decoder::decode_int(std::ifstream &torrentFile) {
     std::string tempArray;
     BValue realInteger = 0;

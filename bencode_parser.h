@@ -38,9 +38,10 @@ class BValue {
     std::variant<Int, Str, List, Dict> data_;
 };
 
+void printBValue(const BValue &v, int);
 class decoder {
   public:
-    void decode();
+    BValue decode();
     // base types
     BValue decode_int(std::ifstream &torrentFile);
     BValue decode_string(std::ifstream &torrentFile);
