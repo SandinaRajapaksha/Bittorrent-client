@@ -1,7 +1,7 @@
 #include "bencode_parser.h"
 #include <fstream>
 
-static std::ifstream torrentFile("bigBuck.torrent");
+static std::ifstream torrentFile("debian.torrent");
 void printBValue(const BValue &v, int indent = 0) {
     std::string pad(indent, ' ');
 

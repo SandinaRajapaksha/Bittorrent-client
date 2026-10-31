@@ -1,6 +1,7 @@
 #pragma once
 #include "bencode_parser.h"
 #include "commonheader.h"
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -12,7 +13,11 @@ class metainfo {
     std::string created_by;
     std::string creation_date;
     std::string encoding;
-    std::vector<uint8_t> pieces;
+
+    // info layer
+    std::string name;
+    uint64_t piece_length;
+    std::string pieces;
 
   public:
     // getters
@@ -22,10 +27,14 @@ class metainfo {
     std::string getCreator();
     std::string getCreationDate();
     std::string getEncoding();
+    std::string getName();
 
     // basic info printing
     void printBasicInfo();
 
     // filling object
     metainfo(BValue FullyDecodedObject);
+
+    // filling info layer
+    void fillInfo(BValue FullyDecodedObject);
 };
